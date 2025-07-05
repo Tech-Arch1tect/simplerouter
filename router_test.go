@@ -284,3 +284,226 @@ func TestJoinPathsEdgeCases(t *testing.T) {
 		})
 	}
 }
+
+func TestWithMethod(t *testing.T) {
+	router := New()
+
+	// Middleware that adds a header
+	headerMiddleware := func(next HandlerFunc) HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-With-Test", "applied")
+			next(w, r)
+		}
+	}
+
+	// Middleware that appends to response
+	responseMiddleware := func(next HandlerFunc) HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			next(w, r)
+			w.Write([]byte(" + with"))
+		}
+	}
+
+	// Test With() method
+	router.With(headerMiddleware, responseMiddleware).GET("/test", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("handler"))
+	})
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	if rr.Header().Get("X-With-Test") != "applied" {
+		t.Errorf("Expected header X-With-Test to be 'applied', got %q", rr.Header().Get("X-With-Test"))
+	}
+
+	expected := "handler + with"
+	if rr.Body.String() != expected {
+		t.Errorf("Expected body %q, got %q", expected, rr.Body.String())
+	}
+}
+
+func TestDirectMiddlewareParameters(t *testing.T) {
+	router := New()
+
+	// Test middleware
+	authMiddleware := func(next HandlerFunc) HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Auth", "passed")
+			next(w, r)
+		}
+	}
+
+	logMiddleware := func(next HandlerFunc) HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Log", "logged")
+			next(w, r)
+		}
+	}
+
+	// Test all HTTP methods with middleware parameters
+	router.GET("/get", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("GET"))
+	}, authMiddleware, logMiddleware)
+
+	router.POST("/post", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("POST"))
+	}, authMiddleware)
+
+	router.PUT("/put", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("PUT"))
+	}, logMiddleware)
+
+	router.DELETE("/delete", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("DELETE"))
+	}, authMiddleware, logMiddleware)
+
+	tests := []struct {
+		method      string
+		path        string
+		expectAuth  bool
+		expectLog   bool
+		expectBody  string
+	}{
+		{"GET", "/get", true, true, "GET"},
+		{"POST", "/post", true, false, "POST"},
+		{"PUT", "/put", false, true, "PUT"},
+		{"DELETE", "/delete", true, true, "DELETE"},
+	}
+
+	for _, tt := range tests {
+		req := httptest.NewRequest(tt.method, tt.path, nil)
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("Expected status %d for %s %s, got %d", http.StatusOK, tt.method, tt.path, rr.Code)
+		}
+
+		if rr.Body.String() != tt.expectBody {
+			t.Errorf("Expected body %q for %s %s, got %q", tt.expectBody, tt.method, tt.path, rr.Body.String())
+		}
+
+		if tt.expectAuth && rr.Header().Get("X-Auth") != "passed" {
+			t.Errorf("Expected X-Auth header for %s %s", tt.method, tt.path)
+		}
+
+		if tt.expectLog && rr.Header().Get("X-Log") != "logged" {
+			t.Errorf("Expected X-Log header for %s %s", tt.method, tt.path)
+		}
+	}
+}
+
+func TestRouteBuilderPattern(t *testing.T) {
+	router := New()
+
+	// Test middleware
+	middleware1 := func(next HandlerFunc) HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Middleware-1", "applied")
+			next(w, r)
+		}
+	}
+
+	middleware2 := func(next HandlerFunc) HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Middleware-2", "applied")
+			next(w, r)
+		}
+	}
+
+	// Test route builder with single middleware
+	router.Route("/single").Use(middleware1).GET(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("single"))
+	})
+
+	// Test route builder with multiple middleware
+	router.Route("/multiple").Use(middleware1, middleware2).POST(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("multiple"))
+	})
+
+	// Test route builder with chained middleware
+	router.Route("/chained").Use(middleware1).Use(middleware2).PUT(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("chained"))
+	})
+
+	tests := []struct {
+		method         string
+		path           string
+		expectMW1      bool
+		expectMW2      bool
+		expectBody     string
+	}{
+		{"GET", "/single", true, false, "single"},
+		{"POST", "/multiple", true, true, "multiple"},
+		{"PUT", "/chained", true, true, "chained"},
+	}
+
+	for _, tt := range tests {
+		req := httptest.NewRequest(tt.method, tt.path, nil)
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("Expected status %d for %s %s, got %d", http.StatusOK, tt.method, tt.path, rr.Code)
+		}
+
+		if rr.Body.String() != tt.expectBody {
+			t.Errorf("Expected body %q for %s %s, got %q", tt.expectBody, tt.method, tt.path, rr.Body.String())
+		}
+
+		if tt.expectMW1 && rr.Header().Get("X-Middleware-1") != "applied" {
+			t.Errorf("Expected X-Middleware-1 header for %s %s", tt.method, tt.path)
+		}
+
+		if tt.expectMW2 && rr.Header().Get("X-Middleware-2") != "applied" {
+			t.Errorf("Expected X-Middleware-2 header for %s %s", tt.method, tt.path)
+		}
+	}
+}
+
+func TestMiddlewareExecutionOrder(t *testing.T) {
+	router := New()
+
+	var executionOrder []string
+
+	middleware1 := func(next HandlerFunc) HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			executionOrder = append(executionOrder, "middleware1")
+			next(w, r)
+		}
+	}
+
+	middleware2 := func(next HandlerFunc) HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			executionOrder = append(executionOrder, "middleware2")
+			next(w, r)
+		}
+	}
+
+	router.GET("/test", func(w http.ResponseWriter, r *http.Request) {
+		executionOrder = append(executionOrder, "handler")
+		w.Write([]byte("test"))
+	}, middleware1, middleware2)
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	rr := httptest.NewRecorder()
+
+	executionOrder = []string{}
+	router.ServeHTTP(rr, req)
+
+	expectedOrder := []string{"middleware1", "middleware2", "handler"}
+	if len(executionOrder) != len(expectedOrder) {
+		t.Errorf("Expected execution order length %d, got %d", len(expectedOrder), len(executionOrder))
+	}
+
+	for i, expected := range expectedOrder {
+		if i >= len(executionOrder) || executionOrder[i] != expected {
+			t.Errorf("Expected execution order %v, got %v", expectedOrder, executionOrder)
+			break
+		}
+	}
+}

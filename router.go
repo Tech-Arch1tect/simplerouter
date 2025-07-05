@@ -118,30 +118,109 @@ func (r *Router) Use(middlewares ...Middleware) *Router {
 	}
 }
 
-func (r *Router) GET(path string, handler HandlerFunc) {
-	r.Handle("GET", path, handler)
+func (r *Router) With(middlewares ...Middleware) *Router {
+	return r.Use(middlewares...)
 }
 
-func (r *Router) POST(path string, handler HandlerFunc) {
-	r.Handle("POST", path, handler)
+func (r *Router) GET(path string, handler HandlerFunc, middlewares ...Middleware) {
+	if len(middlewares) > 0 {
+		r.With(middlewares...).Handle("GET", path, handler)
+	} else {
+		r.Handle("GET", path, handler)
+	}
 }
 
-func (r *Router) PUT(path string, handler HandlerFunc) {
-	r.Handle("PUT", path, handler)
+func (r *Router) POST(path string, handler HandlerFunc, middlewares ...Middleware) {
+	if len(middlewares) > 0 {
+		r.With(middlewares...).Handle("POST", path, handler)
+	} else {
+		r.Handle("POST", path, handler)
+	}
 }
 
-func (r *Router) DELETE(path string, handler HandlerFunc) {
-	r.Handle("DELETE", path, handler)
+func (r *Router) PUT(path string, handler HandlerFunc, middlewares ...Middleware) {
+	if len(middlewares) > 0 {
+		r.With(middlewares...).Handle("PUT", path, handler)
+	} else {
+		r.Handle("PUT", path, handler)
+	}
 }
 
-func (r *Router) PATCH(path string, handler HandlerFunc) {
-	r.Handle("PATCH", path, handler)
+func (r *Router) DELETE(path string, handler HandlerFunc, middlewares ...Middleware) {
+	if len(middlewares) > 0 {
+		r.With(middlewares...).Handle("DELETE", path, handler)
+	} else {
+		r.Handle("DELETE", path, handler)
+	}
 }
 
-func (r *Router) HEAD(path string, handler HandlerFunc) {
-	r.Handle("HEAD", path, handler)
+func (r *Router) PATCH(path string, handler HandlerFunc, middlewares ...Middleware) {
+	if len(middlewares) > 0 {
+		r.With(middlewares...).Handle("PATCH", path, handler)
+	} else {
+		r.Handle("PATCH", path, handler)
+	}
 }
 
-func (r *Router) OPTIONS(path string, handler HandlerFunc) {
-	r.Handle("OPTIONS", path, handler)
+func (r *Router) HEAD(path string, handler HandlerFunc, middlewares ...Middleware) {
+	if len(middlewares) > 0 {
+		r.With(middlewares...).Handle("HEAD", path, handler)
+	} else {
+		r.Handle("HEAD", path, handler)
+	}
+}
+
+func (r *Router) OPTIONS(path string, handler HandlerFunc, middlewares ...Middleware) {
+	if len(middlewares) > 0 {
+		r.With(middlewares...).Handle("OPTIONS", path, handler)
+	} else {
+		r.Handle("OPTIONS", path, handler)
+	}
+}
+
+type RouteBuilder struct {
+	router      *Router
+	path        string
+	middlewares []Middleware
+}
+
+func (r *Router) Route(path string) *RouteBuilder {
+	return &RouteBuilder{
+		router:      r,
+		path:        path,
+		middlewares: make([]Middleware, 0),
+	}
+}
+
+func (rb *RouteBuilder) Use(middlewares ...Middleware) *RouteBuilder {
+	rb.middlewares = append(rb.middlewares, middlewares...)
+	return rb
+}
+
+func (rb *RouteBuilder) GET(handler HandlerFunc) {
+	rb.router.GET(rb.path, handler, rb.middlewares...)
+}
+
+func (rb *RouteBuilder) POST(handler HandlerFunc) {
+	rb.router.POST(rb.path, handler, rb.middlewares...)
+}
+
+func (rb *RouteBuilder) PUT(handler HandlerFunc) {
+	rb.router.PUT(rb.path, handler, rb.middlewares...)
+}
+
+func (rb *RouteBuilder) DELETE(handler HandlerFunc) {
+	rb.router.DELETE(rb.path, handler, rb.middlewares...)
+}
+
+func (rb *RouteBuilder) PATCH(handler HandlerFunc) {
+	rb.router.PATCH(rb.path, handler, rb.middlewares...)
+}
+
+func (rb *RouteBuilder) HEAD(handler HandlerFunc) {
+	rb.router.HEAD(rb.path, handler, rb.middlewares...)
+}
+
+func (rb *RouteBuilder) OPTIONS(handler HandlerFunc) {
+	rb.router.OPTIONS(rb.path, handler, rb.middlewares...)
 }
