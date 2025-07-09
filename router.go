@@ -1,8 +1,10 @@
 package simplerouter
 
 import (
+	"fmt"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -11,6 +13,13 @@ type Router struct {
 	prefix      string
 	middlewares []Middleware
 	routes      map[string]map[string]HandlerFunc
+	routeInfo   *[]RouteInfo
+}
+
+type RouteInfo struct {
+	Method string
+	Path   string
+	Prefix string
 }
 
 type HandlerFunc func(http.ResponseWriter, *http.Request)
@@ -18,11 +27,13 @@ type HandlerFunc func(http.ResponseWriter, *http.Request)
 type Middleware func(HandlerFunc) HandlerFunc
 
 func New() *Router {
+	routeInfo := make([]RouteInfo, 0)
 	return &Router{
 		mux:         http.NewServeMux(),
 		prefix:      "",
 		middlewares: make([]Middleware, 0),
 		routes:      make(map[string]map[string]HandlerFunc),
+		routeInfo:   &routeInfo,
 	}
 }
 
@@ -74,6 +85,7 @@ func (r *Router) Group(prefix string) *Router {
 		prefix:      newPrefix,
 		middlewares: middlewares,
 		routes:      r.routes,
+		routeInfo:   r.routeInfo,
 	}
 }
 
@@ -91,6 +103,12 @@ func (r *Router) Handle(method, path string, handler HandlerFunc) {
 	}
 
 	r.routes[fullPath][method] = finalHandler
+
+	*r.routeInfo = append(*r.routeInfo, RouteInfo{
+		Method: method,
+		Path:   fullPath,
+		Prefix: r.prefix,
+	})
 }
 
 func (r *Router) dispatch(path string) http.HandlerFunc {
@@ -123,11 +141,45 @@ func (r *Router) Use(middlewares ...Middleware) *Router {
 		prefix:      r.prefix,
 		middlewares: newMiddlewares,
 		routes:      r.routes,
+		routeInfo:   r.routeInfo,
 	}
 }
 
 func (r *Router) With(middlewares ...Middleware) *Router {
 	return r.Use(middlewares...)
+}
+
+func (r *Router) ListenAndServe(addr string) error {
+	r.PrintRoutes()
+	return http.ListenAndServe(addr, r)
+}
+
+func (r *Router) PrintRoutes() {
+	if len(*r.routeInfo) == 0 {
+		fmt.Println("No routes registered")
+		return
+	}
+
+	sortedRoutes := make([]RouteInfo, len(*r.routeInfo))
+	copy(sortedRoutes, *r.routeInfo)
+	sort.Slice(sortedRoutes, func(i, j int) bool {
+		if sortedRoutes[i].Path == sortedRoutes[j].Path {
+			return sortedRoutes[i].Method < sortedRoutes[j].Method
+		}
+		return sortedRoutes[i].Path < sortedRoutes[j].Path
+	})
+
+	fmt.Println("\n📋 Registered Routes:")
+	fmt.Println("┌─────────┬─────────────────────────────────────────────┐")
+	fmt.Println("│ Method  │ Path                                    │")
+	fmt.Println("├─────────┼─────────────────────────────────────────────┤")
+
+	for _, route := range sortedRoutes {
+		fmt.Printf("│ %-7s │ %-43s │\n", route.Method, route.Path)
+	}
+
+	fmt.Println("└─────────┴─────────────────────────────────────────────┘")
+	fmt.Printf("Total routes: %d\n\n", len(sortedRoutes))
 }
 
 func (r *Router) GET(path string, handler HandlerFunc, middlewares ...Middleware) {

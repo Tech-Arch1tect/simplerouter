@@ -139,14 +139,14 @@ func main() {
 
 	// Start JSON logging server
 	go func() {
-		log.Fatal(http.ListenAndServe(":8084", jsonRouter))
+		log.Fatal(jsonRouter.ListenAndServe(":8084"))
 	}()
 
 	// Start no-logging server
 	go func() {
-		log.Fatal(http.ListenAndServe(":8085", router))
+		log.Fatal(router.ListenAndServe(":8085"))
 	}()
 
 	// Start main server with default access logging
-	log.Fatal(http.ListenAndServe(":8083", routerWithDefaults))
+	log.Fatal(routerWithDefaults.ListenAndServe(":8083"))
 }
