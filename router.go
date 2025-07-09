@@ -2,6 +2,7 @@ package simplerouter
 
 import (
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -23,6 +24,13 @@ func New() *Router {
 		middlewares: make([]Middleware, 0),
 		routes:      make(map[string]map[string]HandlerFunc),
 	}
+}
+
+func NewWithDefaults() *Router {
+	return New().Use(AccessLogging(AccessLogConfig{
+		Output: os.Stdout,
+		Format: CombinedLogFormat,
+	}))
 }
 
 func (r *Router) Handler() http.Handler {
