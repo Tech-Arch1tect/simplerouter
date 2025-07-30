@@ -10,6 +10,12 @@ import (
 func Compression() Middleware {
 	return func(next HandlerFunc) HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
+			if strings.EqualFold(r.Header.Get("Connection"), "Upgrade") &&
+				strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+				next(w, r)
+				return
+			}
+
 			if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 				next(w, r)
 				return
