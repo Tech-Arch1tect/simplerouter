@@ -360,11 +360,11 @@ func TestDirectMiddlewareParameters(t *testing.T) {
 	}, authMiddleware, logMiddleware)
 
 	tests := []struct {
-		method      string
-		path        string
-		expectAuth  bool
-		expectLog   bool
-		expectBody  string
+		method     string
+		path       string
+		expectAuth bool
+		expectLog  bool
+		expectBody string
 	}{
 		{"GET", "/get", true, true, "GET"},
 		{"POST", "/post", true, false, "POST"},
@@ -430,11 +430,11 @@ func TestRouteBuilderPattern(t *testing.T) {
 	})
 
 	tests := []struct {
-		method         string
-		path           string
-		expectMW1      bool
-		expectMW2      bool
-		expectBody     string
+		method     string
+		path       string
+		expectMW1  bool
+		expectMW2  bool
+		expectBody string
 	}{
 		{"GET", "/single", true, false, "single"},
 		{"POST", "/multiple", true, true, "multiple"},
