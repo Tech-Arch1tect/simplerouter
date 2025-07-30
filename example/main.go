@@ -169,6 +169,17 @@ func main() {
 		log.Fatal(compressedRouter.ListenAndServe(":8086"))
 	}()
 
+	// HTTPS server example (commented out - requires cert.pem and key.pem files)
+	// Uncomment to test HTTPS functionality:
+	//
+	// httpsRouter := simplerouter.NewWithDefaults()
+	// httpsRouter.GET("/secure", func(w http.ResponseWriter, r *http.Request) {
+	//     fmt.Fprintf(w, "Secure HTTPS connection!")
+	// })
+	// go func() {
+	//     log.Fatal(httpsRouter.ListenAndServeTLS(":8443", "cert.pem", "key.pem"))
+	// }()
+
 	// Start main server with default access logging
 	log.Fatal(routerWithDefaults.ListenAndServe(":8083"))
 }

@@ -154,6 +154,11 @@ func (r *Router) ListenAndServe(addr string) error {
 	return http.ListenAndServe(addr, r)
 }
 
+func (r *Router) ListenAndServeTLS(addr, certFile, keyFile string) error {
+	r.PrintRoutes()
+	return http.ListenAndServeTLS(addr, certFile, keyFile, r)
+}
+
 func (r *Router) PrintRoutes() {
 	if len(*r.routeInfo) == 0 {
 		fmt.Println("No routes registered")
